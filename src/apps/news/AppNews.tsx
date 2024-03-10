@@ -3,8 +3,9 @@ import { keyframes } from '@emotion/react';
 import NextImage from 'next/image';
 import TimeAgo from 'react-timeago';
 
-import { AspectRatio, Box, Button, Card, CardContent, CardOverflow, Container, IconButton, Typography } from '@mui/joy';
+import { AspectRatio, Box, Button, Card, CardContent, CardOverflow, Container, Grid, IconButton, Typography } from '@mui/joy';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LaunchIcon from '@mui/icons-material/Launch';
 
 import { Brand } from '~/common/app.config';
 import { Link } from '~/common/components/Link';
@@ -12,7 +13,8 @@ import { ROUTE_INDEX } from '~/common/app.routes';
 import { capitalizeFirstLetter } from '~/common/util/textUtils';
 import { cssRainbowColorKeyframes } from '~/common/app.theme';
 
-import { NewsItems, newsRoadmapCallout } from './news.data';
+import { NewsItems } from './news.data';
+
 
 // number of news items to show by default, before the expander
 const DEFAULT_NEWS_COUNT = 3;
@@ -30,6 +32,39 @@ export const cssColorKeyframes = keyframes`
     75% {
         color: #083e75; /* Primary lighter shade (300) */
     }`;
+
+
+// callout, for special occasions
+export const newsRoadmapCallout =
+  <Card variant='solid' invertedColors>
+    <CardContent sx={{ gap: 2 }}>
+      <Typography level='title-lg'>
+        Open Roadmap
+      </Typography>
+      <Typography level='body-sm'>
+        Take a peek at our roadmap to see what&apos;s in the pipeline.
+        Discover upcoming features and let us know what excites you the most!
+      </Typography>
+      <Grid container spacing={1}>
+        <Grid xs={12} sm={7}>
+          <Button
+            fullWidth variant='soft' color='primary' endDecorator={<LaunchIcon />}
+            component={Link} href={Brand.URIs.OpenProject} noLinkStyle target='_blank'
+          >
+            Explore
+          </Button>
+        </Grid>
+        <Grid xs={12} sm={5} sx={{ display: 'flex', flexAlign: 'center', justifyContent: 'center' }}>
+          <Button
+            fullWidth variant='plain' color='primary' endDecorator={<LaunchIcon />}
+            component={Link} href={Brand.URIs.OpenRepo + '/issues/new?template=roadmap-request.md&title=%5BSuggestion%5D'} noLinkStyle target='_blank'
+          >
+            Suggest a Feature
+          </Button>
+        </Grid>
+      </Grid>
+    </CardContent>
+  </Card>;
 
 
 export function AppNews() {
@@ -93,12 +128,12 @@ export function AppNews() {
                 <CardContent sx={{ position: 'relative', pr: addPadding ? 4 : 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography level='title-sm' component='div'>
-                      {ni.text ? ni.text : ni.versionName ? <><span style={{ fontWeight: 600 }}>{ni.versionCode}</span> · </> : `Version ${ni.versionCode}:`}
+                      {ni.text ? ni.text : ni.versionName ? <><b>{ni.versionCode}</b> · </> : `Version ${ni.versionCode}:`}
                       <Box
                         component='span'
                         sx={idx ? {} : {
                           animation: `${cssRainbowColorKeyframes} 5s infinite`,
-                          fontWeight: 600,
+                          fontWeight: 'lg',
                           zIndex: 1,
                         }}
                       >
@@ -111,12 +146,15 @@ export function AppNews() {
                   </Box>
 
                   {!!ni.items && (ni.items.length > 0) && (
-                    <ul style={{ marginTop: 8, marginBottom: 8, paddingInlineStart: '1.5rem' }}>
-                      {ni.items.filter(item => item.dev !== true).map((item, idx) => <li key={idx}>
-                        < Typography component='div' level='body-sm'>
-                          {item.text}
-                        </Typography>
-                      </li>)}
+                    <ul style={{ marginTop: 8, marginBottom: 8, paddingInlineStart: '1.5rem', listStyleType: '"-  "' }}>
+                      {ni.items.filter(item => item.dev !== true).map((item, idx) => (
+                        <li key={idx} style={{ listStyle: item.icon ? '" "' : '"-  "', marginLeft: item.icon ? '-1.125rem' : undefined }}>
+                          <Typography component='div' sx={{ fontSize: 'sm' }}>
+                            {item.icon && <item.icon sx={{ fontSize: 'xs', mr: 0.75 }} />}
+                            {item.text}
+                          </Typography>
+                        </li>
+                      ))}
                     </ul>
                   )}
 

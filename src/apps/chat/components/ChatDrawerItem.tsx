@@ -2,7 +2,7 @@ import * as React from 'react';
 
 import { Avatar, Box, IconButton, ListItem, ListItemButton, ListItemDecorator, Sheet, styled, Tooltip, Typography } from '@mui/joy';
 import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
-import CloseIcon from '@mui/icons-material/Close';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditIcon from '@mui/icons-material/Edit';
@@ -28,7 +28,7 @@ import { CHAT_NOVEL_TITLE } from '../AppChat';
 
 
 export const FadeInButton = styled(IconButton)({
-  opacity: 0.667,
+  opacity: 0.5,
   transition: 'opacity 0.2s',
   '&:hover': { opacity: 1 },
 });
@@ -47,16 +47,18 @@ export const ChatDrawerItemMemo = React.memo(ChatDrawerItem, (prev, next) =>
 );
 
 export interface ChatNavigationItemData {
+  type: 'nav-item-chat-data',
   conversationId: DConversationId;
   isActive: boolean;
   isAlsoOpen: string | false;
   isEmpty: boolean;
   title: string;
   folder: DFolder | null | undefined; // null: 'All', undefined: do not show folder select
+  updatedAt: number;
   messageCount: number;
   assistantTyping: boolean;
   systemPurposeId: SystemPurposeId;
-  searchFrequency?: number;
+  searchFrequency: number;
 }
 
 export interface FolderChangeRequest {
@@ -166,8 +168,7 @@ function ChatDrawerItem(props: {
 
   const textSymbol = SystemPurposes[systemPurposeId]?.symbol || '❓';
 
-  const progress = props.bottomBarBasis ? 100 * (searchFrequency ?? messageCount) / props.bottomBarBasis : 0;
-
+  const progress = props.bottomBarBasis ? 100 * (searchFrequency || messageCount) / props.bottomBarBasis : 0;
 
   const titleRowComponent = React.useMemo(() => <>
 
@@ -219,7 +220,7 @@ function ChatDrawerItem(props: {
     )}
 
     {/* Display search frequency if it exists and is greater than 0 */}
-    {searchFrequency && searchFrequency > 0 && (
+    {searchFrequency > 0 && (
       <Box sx={{ ml: 1 }}>
         <Typography level='body-sm'>
           {searchFrequency}
@@ -232,7 +233,7 @@ function ChatDrawerItem(props: {
   const progressBarFixedComponent = React.useMemo(() =>
     progress > 0 && (
       <Box sx={{
-        backgroundColor: 'neutral.softBg',
+        backgroundColor: 'neutral.softHoverBg',
         position: 'absolute', left: 0, bottom: 0, width: progress + '%', height: 4,
       }} />
     ), [progress]);
@@ -310,15 +311,15 @@ function ChatDrawerItem(props: {
                   </FadeInButton>
                 </Tooltip>
 
-                <Tooltip disableInteractive title='Export Chat'>
-                  <FadeInButton size='sm' onClick={handleConversationExport}>
-                    <FileDownloadOutlinedIcon />
-                  </FadeInButton>
-                </Tooltip>
-
                 <Tooltip disableInteractive title='Branch'>
                   <FadeInButton size='sm' onClick={handleConversationBranch}>
                     <ForkRightIcon />
+                  </FadeInButton>
+                </Tooltip>
+
+                <Tooltip disableInteractive title='Export Chat'>
+                  <FadeInButton size='sm' onClick={handleConversationExport}>
+                    <FileDownloadOutlinedIcon />
                   </FadeInButton>
                 </Tooltip>
               </>}
@@ -329,21 +330,21 @@ function ChatDrawerItem(props: {
             <Box sx={{ flex: 1 }} />
 
             {/* Delete [armed, arming] buttons */}
-            {!searchFrequency && <>
-              {deleteArmed && (
-                <Tooltip disableInteractive title='Confirm Deletion'>
-                  <FadeInButton key='btn-del' variant='solid' color='success' size='sm' onClick={handleConversationDelete} sx={{ opacity: 1, mr: 0.5 }}>
-                    <DeleteForeverIcon sx={{ color: 'danger.solidBg' }} />
-                  </FadeInButton>
-                </Tooltip>
-              )}
-
-              <Tooltip disableInteractive title={deleteArmed ? 'Cancel Delete' : 'Delete'}>
-                <FadeInButton key='btn-arm' size='sm' onClick={deleteArmed ? handleDeleteButtonHide : handleDeleteButtonShow} sx={deleteArmed ? { opacity: 1 } : {}}>
-                  {deleteArmed ? <CloseIcon /> : <DeleteOutlineIcon />}
+            {/*{!searchFrequency && <>*/}
+            {deleteArmed && (
+              <Tooltip disableInteractive title='Confirm Deletion'>
+                <FadeInButton key='btn-del' variant='solid' color='success' size='sm' onClick={handleConversationDelete} sx={{ opacity: 1, mr: 0.5 }}>
+                  <DeleteForeverIcon sx={{ color: 'danger.solidBg' }} />
                 </FadeInButton>
               </Tooltip>
-            </>}
+            )}
+
+            <Tooltip disableInteractive title={deleteArmed ? 'Cancel Delete' : 'Delete'}>
+              <FadeInButton key='btn-arm' size='sm' onClick={deleteArmed ? handleDeleteButtonHide : handleDeleteButtonShow} sx={deleteArmed ? { opacity: 1 } : {}}>
+                {deleteArmed ? <CloseRoundedIcon /> : <DeleteOutlineIcon />}
+              </FadeInButton>
+            </Tooltip>
+            {/*</>}*/}
           </Box>
         )}
 

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { shallow } from 'zustand/shallow';
 
+import type { SxProps } from '@mui/joy/styles/types';
 import { Avatar, Box, CircularProgress, IconButton, ListDivider, ListItem, ListItemDecorator, MenuItem, Switch, Tooltip, Typography } from '@mui/joy';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -18,21 +19,24 @@ import SmartToyOutlinedIcon from '@mui/icons-material/SmartToyOutlined';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import VerticalAlignBottomIcon from '@mui/icons-material/VerticalAlignBottom';
 
-import { ChatBestOfIcon } from '~/common/components/icons/ChatBestOfIcon';
+import { SystemPurposeId, SystemPurposes } from '../../../../data';
+
+import { BlocksRenderer, editBlocksSx } from '~/modules/blocks/BlocksRenderer';
+import { useSanityTextDiffs } from '~/modules/blocks/RenderTextDiff';
+
+import { ChatBeamIcon } from '~/common/components/icons/ChatBeamIcon';
 import { CloseableMenu } from '~/common/components/CloseableMenu';
 import { DMessage } from '~/common/state/store-chats';
 import { InlineTextarea } from '~/common/components/InlineTextarea';
 import { KeyStroke } from '~/common/components/KeyStroke';
 import { Link } from '~/common/components/Link';
-import { SystemPurposeId, SystemPurposes } from '../../../../data';
+import { adjustContentScaling, cssRainbowColorKeyframes, themeScalingMap } from '~/common/app.theme';
 import { copyToClipboard } from '~/common/util/clipboardUtils';
-import { cssRainbowColorKeyframes, themeScalingMap } from '~/common/app.theme';
 import { prettyBaseModel } from '~/common/util/modelUtils';
 import { useUIPreferencesStore } from '~/common/state/store-ui';
+import { useUXLabsStore } from '~/common/state/store-ux-labs';
 
-import { BlocksRenderer, editBlocksSx } from './blocks/BlocksRenderer';
 import { useChatShowTextDiff } from '../../store-app-chat';
-import { useSanityTextDiffs } from './blocks/RenderTextDiff';
 
 
 // Enable the menu on text selection
@@ -49,7 +53,7 @@ export function messageBackground(messageRole: DMessage['role'] | string, wasEdi
     case 'assistant':
       return unknownAssistantIssue ? 'danger.softBg' : 'background.surface';
     case 'system':
-      return wasEdited ? 'warning.softHoverBg' : 'background.surface';
+      return wasEdited ? 'warning.softHoverBg' : 'neutral.softBg';
     default:
       return '#ff0000';
   }
@@ -60,6 +64,7 @@ const avatarIconSx = { width: 36, height: 36 };
 export function makeAvatar(messageAvatar: string | null, messageRole: DMessage['role'] | string, messageOriginLLM: string | undefined, messagePurposeId: SystemPurposeId | undefined, messageSender: string, messageTyping: boolean, size: 'sm' | undefined = undefined): React.JSX.Element {
   if (typeof messageAvatar === 'string' && messageAvatar)
     return <Avatar alt={messageSender} src={messageAvatar} />;
+
   const mascotSx = size === 'sm' ? avatarIconSx : { width: 64, height: 64 };
   switch (messageRole) {
     case 'system':
@@ -72,17 +77,18 @@ export function makeAvatar(messageAvatar: string | null, messageRole: DMessage['
       // typing gif (people seem to love this, so keeping it after april fools')
       const isTextToImage = messageOriginLLM === 'DALL·E' || messageOriginLLM === 'Prodia';
       const isReact = messageOriginLLM?.startsWith('react-');
-      if (messageTyping) {
+
+      // animation: message typing
+      if (messageTyping)
         return <Avatar
           alt={messageSender} variant='plain'
-          src={isTextToImage ? 'https://i.giphy.com/media/5t9ujj9cMisyVjUZ0m/giphy.webp'
-            : isReact ? 'https://i.giphy.com/media/l44QzsOLXxcrigdgI/giphy.webp'
-              : 'https://i.giphy.com/media/jJxaUysjzO9ri/giphy.webp'}
+          src={isTextToImage ? 'https://i.giphy.com/media/5t9ujj9cMisyVjUZ0m/giphy.webp' // brush
+            : isReact ? 'https://i.giphy.com/media/l44QzsOLXxcrigdgI/giphy.webp' // mind
+              : 'https://i.giphy.com/media/jJxaUysjzO9ri/giphy.webp'} // typing
           sx={{ ...mascotSx, borderRadius: 'sm' }}
         />;
-      }
 
-      // text-to-image: icon
+      // icon: text-to-image
       if (isTextToImage)
         return <FormatPaintIcon sx={{
           ...avatarIconSx,
@@ -91,15 +97,16 @@ export function makeAvatar(messageAvatar: string | null, messageRole: DMessage['
 
       // purpose symbol (if present)
       const symbol = SystemPurposes[messagePurposeId!]?.symbol;
-      if (symbol) return <Box sx={{
-        fontSize: '24px',
-        textAlign: 'center',
-        width: '100%',
-        minWidth: `${avatarIconSx.width}px`,
-        lineHeight: `${avatarIconSx.height}px`,
-      }}>
-        {symbol}
-      </Box>;
+      if (symbol)
+        return <Box sx={{
+          fontSize: '24px',
+          textAlign: 'center',
+          width: '100%',
+          minWidth: `${avatarIconSx.width}px`,
+          lineHeight: `${avatarIconSx.height}px`,
+        }}>
+          {symbol}
+        </Box>;
 
       // default assistant avatar
       return <SmartToyOutlinedIcon sx={avatarIconSx} />; // https://mui.com/static/images/avatar/2.jpg
@@ -181,19 +188,22 @@ export const ChatMessageMemo = React.memo(ChatMessage);
 export function ChatMessage(props: {
   message: DMessage,
   diffPreviousText?: string,
+  fitScreen: boolean,
   isBottom?: boolean,
-  isMobile: boolean,
   isImagining?: boolean,
   isSpeaking?: boolean,
-  blocksShowDate?: boolean,
+  showAvatar?: boolean, // auto if undefined
+  showBlocksDate?: boolean,
+  adjustContentScaling?: number,
   onConversationBranch?: (messageId: string) => void,
-  onConversationRestartFrom?: (messageId: string, offset: number, chatEffectBestOf: boolean) => Promise<void>,
+  onConversationRestartFrom?: (messageId: string, offset: number, chatEffectBeam: boolean) => Promise<void>,
   onConversationTruncate?: (messageId: string) => void,
   onMessageDelete?: (messageId: string) => void,
   onMessageEdit?: (messageId: string, text: string) => void,
   onTextDiagram?: (messageId: string, text: string) => Promise<void>
   onTextImagine?: (text: string) => Promise<void>
   onTextSpeak?: (text: string) => Promise<void>
+  sx?: SxProps,
 }) {
 
   // state
@@ -204,9 +214,10 @@ export function ChatMessage(props: {
   const [isEditing, setIsEditing] = React.useState(false);
 
   // external state
-  const { cleanerLooks, contentScaling, doubleClickToEdit, renderMarkdown } = useUIPreferencesStore(state => ({
-    cleanerLooks: state.zenMode === 'cleaner',
-    contentScaling: state.contentScaling,
+  const labsChatBeam = useUXLabsStore(state => state.labsChatBeam);
+  const { showAvatar, contentScaling, doubleClickToEdit, renderMarkdown } = useUIPreferencesStore(state => ({
+    showAvatar: props.showAvatar !== undefined ? props.showAvatar : state.zenMode !== 'cleaner',
+    contentScaling: adjustContentScaling(state.contentScaling, props.adjustContentScaling),
     doubleClickToEdit: state.doubleClickToEdit,
     renderMarkdown: state.renderMarkdown,
   }), shallow);
@@ -230,8 +241,6 @@ export function ChatMessage(props: {
   const fromAssistant = messageRole === 'assistant';
   const fromSystem = messageRole === 'system';
   const wasEdited = !!messageUpdated;
-
-  const showAvatars = !cleanerLooks;
 
   const textSel = selMenuText ? selMenuText : messageText;
   const isSpecialT2I = textSel.startsWith('https://images.prodia.xyz/') || textSel.startsWith('/draw ') || textSel.startsWith('/imagine ') || textSel.startsWith('/img ');
@@ -278,10 +287,10 @@ export function ChatMessage(props: {
     props.onConversationRestartFrom && await props.onConversationRestartFrom(messageId, fromAssistant ? -1 : 0, false);
   };
 
-  const handleOpsConversationRestartBestOf = async (e: React.MouseEvent) => {
+  const handleOpsConversationRestartFromBeam = async (e: React.MouseEvent) => {
     e.stopPropagation();
     closeOpsMenu();
-    props.onConversationRestartFrom && await props.onConversationRestartFrom(messageId, fromAssistant ? -1 : 0, true);
+    props.onConversationRestartFrom && labsChatBeam && await props.onConversationRestartFrom(messageId, fromAssistant ? -1 : 0, true);
   };
 
   const handleOpsToggleShowDiff = () => setShowDiff(!showDiff);
@@ -393,8 +402,8 @@ export function ChatMessage(props: {
 
   // avatar
   const avatarEl: React.JSX.Element | null = React.useMemo(
-    () => showAvatars ? makeAvatar(messageAvatar, messageRole, messageOriginLLM, messagePurposeId, messageSender, messageTyping) : null,
-    [messageAvatar, messageOriginLLM, messagePurposeId, messageRole, messageSender, messageTyping, showAvatars],
+    () => showAvatar ? makeAvatar(messageAvatar, messageRole, messageOriginLLM, messagePurposeId, messageSender, messageTyping) : null,
+    [messageAvatar, messageOriginLLM, messagePurposeId, messageRole, messageSender, messageTyping, showAvatar],
   );
 
 
@@ -410,11 +419,12 @@ export function ChatMessage(props: {
         borderBottomColor: 'divider',
         ...(ENABLE_COPY_MESSAGE_OVERLAY && { position: 'relative' }),
         '&:hover > button': { opacity: 1 },
+        ...props.sx,
       }}
     >
 
       {/* Avatar */}
-      {showAvatars && (
+      {showAvatar && (
         <Box
           onMouseEnter={() => setIsHovering(true)} onMouseLeave={() => setIsHovering(false)}
           onClick={event => setOpsMenuAnchor(event.currentTarget)}
@@ -428,7 +438,7 @@ export function ChatMessage(props: {
         >
 
           {isHovering ? (
-            <IconButton variant='soft' color={fromAssistant ? 'neutral' : 'primary'} sx={avatarIconSx}>
+            <IconButton variant='soft' color={(fromAssistant || fromSystem) ? 'neutral' : 'primary'} sx={avatarIconSx}>
               <MoreVertIcon />
             </IconButton>
           ) : (
@@ -466,11 +476,11 @@ export function ChatMessage(props: {
           fromRole={messageRole}
           contentScaling={contentScaling}
           errorMessage={errorMessage}
+          fitScreen={props.fitScreen}
           isBottom={props.isBottom}
-          isMobile={props.isMobile}
           renderTextAsMarkdown={renderMarkdown}
           renderTextDiff={textDiffs || undefined}
-          showDate={props.blocksShowDate === true ? messageUpdated || messageCreated || undefined : undefined}
+          showDate={props.showBlocksDate === true ? messageUpdated || messageCreated || undefined : undefined}
           wasUserEdited={wasEdited}
           onContextMenu={(props.onMessageEdit && ENABLE_SELECTION_RIGHT_CLICK_MENU) ? handleBlocksContextMenu : undefined}
           onDoubleClick={(props.onMessageEdit && doubleClickToEdit) ? handleBlocksDoubleClick : undefined}
@@ -502,6 +512,15 @@ export function ChatMessage(props: {
           open anchorEl={opsMenuAnchor} onClose={closeOpsMenu}
           sx={{ minWidth: 280 }}
         >
+
+          {fromSystem && (
+            <ListItem>
+              <Typography level='body-sm'>
+                System message
+              </Typography>
+            </ListItem>
+          )}
+
           {/* Edit / Copy */}
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {!!props.onMessageEdit && (
@@ -583,16 +602,18 @@ export function ChatMessage(props: {
                     Retry
                     <KeyStroke combo='Ctrl + Shift + R' />
                   </Box>}
-              <Tooltip title={messageTyping ? null : 'Best-Of'}>
-                <IconButton
-                  size='sm'
-                  variant='outlined' color='primary'
-                  onClick={handleOpsConversationRestartBestOf}
-                  sx={{ ml: 'auto', my: '-0.25rem' /* absorb the menuItem padding */ }}
-                >
-                  <ChatBestOfIcon /> {/*<GavelIcon />*/}
-                </IconButton>
-              </Tooltip>
+              {labsChatBeam && (
+                <Tooltip title={messageTyping ? null : 'Beam'}>
+                  <IconButton
+                    size='sm'
+                    variant='outlined' color='primary'
+                    onClick={handleOpsConversationRestartFromBeam}
+                    sx={{ ml: 'auto', my: '-0.25rem' /* absorb the menuItem padding */ }}
+                  >
+                    <ChatBeamIcon /> {/*<GavelIcon />*/}
+                  </IconButton>
+                </Tooltip>
+              )}
             </MenuItem>
           )}
         </CloseableMenu>

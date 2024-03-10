@@ -14,7 +14,7 @@ import { RenderHtml } from './RenderHtml';
 import { RenderImage } from './RenderImage';
 import { RenderLatex } from './RenderLatex';
 import { RenderMarkdown, RenderMarkdownMemo } from './markdown/RenderMarkdown';
-import { RenderText } from './RenderText';
+import { RenderChatText } from './RenderChatText';
 import { RenderTextDiff } from './RenderTextDiff';
 import { areBlocksEqual, Block, parseMessageBlocks } from './blocks';
 
@@ -51,8 +51,8 @@ export function BlocksRenderer(props: {
   renderTextDiff?: TextDiff[];
 
   errorMessage?: React.ReactNode;
+  fitScreen: boolean;
   isBottom?: boolean;
-  isMobile?: boolean;
   showDate?: number;
   wasUserEdited?: boolean;
 
@@ -102,11 +102,20 @@ export function BlocksRenderer(props: {
       boxShadow: props.specialDiagramMode ? 'md' : 'xs',
       fontFamily: 'code',
       fontSize: themeScalingMap[props.contentScaling]?.blockCodeFontSize ?? '0.875rem',
+      fontWeight: 'md', // JetBrains Mono has a lighter weight, so we need that extra bump
       fontVariantLigatures: 'none',
       lineHeight: themeScalingMap[props.contentScaling]?.blockLineHeight ?? 1.75,
       borderRadius: 'var(--joy-radius-sm)',
     }
   ), [fromAssistant, props.contentScaling, props.specialDiagramMode]);
+
+  const scaledImageSx: SxProps = React.useMemo(() => (
+    {
+      fontSize: themeScalingMap[props.contentScaling]?.blockFontSize ?? undefined,
+      lineHeight: themeScalingMap[props.contentScaling]?.blockLineHeight ?? 1.75,
+      marginBottom: themeScalingMap[props.contentScaling]?.blockImageGap ?? 1.5,
+    }
+  ), [props.contentScaling]);
 
   const scaledTypographySx: SxProps = React.useMemo(() => (
     {
@@ -184,16 +193,16 @@ export function BlocksRenderer(props: {
             return block.type === 'html'
               ? <RenderHtml key={'html-' + index} htmlBlock={block} sx={scaledCodeSx} />
               : block.type === 'code'
-                ? <RenderCodeMemoOrNot key={'code-' + index} codeBlock={block} isMobile={props.isMobile} noCopyButton={props.specialDiagramMode} optimizeLightweight={!optimizeWithMemo} sx={scaledCodeSx} />
+                ? <RenderCodeMemoOrNot key={'code-' + index} codeBlock={block} fitScreen={props.fitScreen} noCopyButton={props.specialDiagramMode} optimizeLightweight={!optimizeWithMemo} sx={scaledCodeSx} />
                 : block.type === 'image'
-                  ? <RenderImage key={'image-' + index} imageBlock={block} onRunAgain={props.isBottom ? props.onImageRegenerate : undefined} sx={scaledTypographySx} />
+                  ? <RenderImage key={'image-' + index} imageBlock={block} onRunAgain={props.isBottom ? props.onImageRegenerate : undefined} sx={scaledImageSx} />
                   : block.type === 'latex'
                     ? <RenderLatex key={'latex-' + index} latexBlock={block} sx={scaledTypographySx} />
                     : block.type === 'diff'
                       ? <RenderTextDiff key={'latex-' + index} diffBlock={block} sx={scaledTypographySx} />
                       : (props.renderTextAsMarkdown && !fromSystem && !(fromUser && block.content.startsWith('/')))
                         ? <RenderMarkdownMemoOrNot key={'text-md-' + index} textBlock={block} sx={scaledTypographySx} />
-                        : <RenderText key={'text-' + index} textBlock={block} sx={scaledTypographySx} />;
+                        : <RenderChatText key={'text-' + index} textBlock={block} sx={scaledTypographySx} />;
           })
 
       )}

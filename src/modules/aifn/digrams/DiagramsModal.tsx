@@ -8,8 +8,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import StopOutlinedIcon from '@mui/icons-material/StopOutlined';
 import TelegramIcon from '@mui/icons-material/Telegram';
 
-import { BlocksRenderer } from '../../../apps/chat/components/message/blocks/BlocksRenderer';
-
+import { BlocksRenderer } from '~/modules/blocks/BlocksRenderer';
 import { llmStreamingChatGenerate } from '~/modules/llms/llm.client';
 
 import { GoodModal } from '~/common/components/GoodModal';
@@ -17,6 +16,7 @@ import { InlineError } from '~/common/components/InlineError';
 import { createDMessage, useChatStore } from '~/common/state/store-chats';
 import { useFormRadio } from '~/common/components/forms/useFormRadio';
 import { useFormRadioLlmType } from '~/common/components/forms/useFormRadioLlmType';
+import { useIsMobile } from '~/common/components/useMatchMedia';
 import { useUIPreferencesStore } from '~/common/state/store-ui';
 
 import { bigDiagramPrompt, DiagramLanguage, diagramLanguages, DiagramType, diagramTypes } from './diagrams.data';
@@ -54,6 +54,7 @@ export function DiagramsModal(props: { config: DiagramConfig, onClose: () => voi
   const [abortController, setAbortController] = React.useState<AbortController | null>(null);
 
   // external state
+  const isMobile = useIsMobile();
   const contentScaling = useUIPreferencesStore(state => state.contentScaling);
   const [diagramLlm, llmComponent] = useFormRadioLlmType('Generator');
 
@@ -186,10 +187,12 @@ export function DiagramsModal(props: { config: DiagramConfig, onClose: () => voi
         marginX: 'calc(-1 * var(--Card-padding))',
         minHeight: 96,
         p: { xs: 1, md: 2 },
+        overflow: 'hidden',
       }}>
         <BlocksRenderer
           text={diagramCode}
           fromRole='assistant'
+          fitScreen={isMobile}
           contentScaling={contentScaling}
           renderTextAsMarkdown={false}
           specialDiagramMode
